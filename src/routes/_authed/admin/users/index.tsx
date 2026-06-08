@@ -95,6 +95,14 @@ function UsersPage() {
                   {u.recordCount} readings · joined{' '}
                   {format(new Date(u.createdAt), 'MMM d, yyyy')}
                 </p>
+                <p className="text-xs text-muted-foreground">
+                  Last login:{' '}
+                  {u.lastLoginAt ? (
+                    format(new Date(u.lastLoginAt), 'MMM d, yyyy · HH:mm')
+                  ) : (
+                    <span className="text-amber-600">Never</span>
+                  )}
+                </p>
                 <div className="mt-2 flex items-center justify-between">
                   <label className="flex items-center gap-2 text-sm">
                     <Switch
@@ -122,6 +130,7 @@ function UsersPage() {
                   <TableHead>Role</TableHead>
                   <TableHead>Readings</TableHead>
                   <TableHead>Joined</TableHead>
+                  <TableHead>Last login</TableHead>
                   <TableHead>Active</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -145,6 +154,13 @@ function UsersPage() {
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {format(new Date(u.createdAt), 'MMM d, yyyy')}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {u.lastLoginAt ? (
+                        format(new Date(u.lastLoginAt), 'MMM d · HH:mm')
+                      ) : (
+                        <span className="text-amber-600">Never</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Switch

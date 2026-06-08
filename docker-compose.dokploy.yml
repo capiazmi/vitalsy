@@ -29,6 +29,15 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL in .env}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       ADMIN_NAME: ${ADMIN_NAME:-Administrator}
+      # Email notifications (optional; also editable in Admin → Email).
+      NOTIFICATIONS_ENABLED: ${NOTIFICATIONS_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-BP Monitor}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
       # AI vision OCR (optional) — reads 7-segment LCDs far better than the fallback.
       OCR_PROVIDER: ${OCR_PROVIDER:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

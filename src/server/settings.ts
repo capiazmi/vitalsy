@@ -11,6 +11,14 @@ import {
   writeOcrSettings,
   type OcrSettings,
 } from '#/server/ocr-settings'
+import {
+  getEffectiveSmtp,
+  readSmtpSettings,
+  writeSmtpSettings,
+  type SmtpSettings,
+} from '#/server/smtp-settings'
+import { sendTest } from '#/lib/mailer'
+import { testEmail } from '#/lib/email-templates'
 
 export interface OcrSettingsView {
   provider: OcrSettings['provider']
@@ -137,4 +145,95 @@ export const listOcrModels = createServerFn({ method: 'POST' })
         ? await listAnthropicModels(eff.anthropic.apiKey)
         : await listOllamaModels(eff.ollama.host, eff.ollama.apiKey)
     return { models }
+  })
+
+// ── SMTP / notifications ───────────────────────────────────
+
+export interface SmtpSettingsView {
+  notificationsEnabled: boolean
+  host: string
+  port: number | null
+  secure: boolean
+  user: string
+  passSet: boolean
+  envPassSet: boolean
+  fromName: string
+  fromEmail: string
+  configured: boolean
+}
+
+export const fetchSmtpSettings = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<SmtpSettingsView> => {
+    await requireAdmin()
+    const s = await readSmtpSettings()
+    const eff = await getEffectiveSmtp()
+    return {
+      notificationsEnabled: s.notificationsEnabled,
+      host: s.host,
+      port: s.port,
+      secure: s.secure,
+      user: s.user,
+      passSet: Boolean(s.pass),
+      envPassSet: Boolean(process.env.SMTP_PASS),
+      fromName: s.fromName,
+      fromEmail: s.fromEmail,
+      configured: eff.configured,
+    }
+  },
+)
+
+const smtpSaveSchema = z.object({
+  notificationsEnabled: z.boolean(),
+  host: z.string().trim().max(255).optional(),
+  port: z.coerce.number().int().min(1).max(65535).optional().nullable(),
+  secure: z.boolean().optional(),
+  user: z.string().trim().max(255).optional(),
+  pass: z.string().max(500).optional(),
+  fromName: z.string().trim().max(120).optional(),
+  fromEmail: z
+    .string()
+    .trim()
+    .max(255)
+    .optional()
+    .refine((v) => !v || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v), 'Invalid email'),
+})
+
+export const saveSmtpSettings = createServerFn({ method: 'POST' })
+  .validator((d: unknown) => smtpSaveSchema.parse(d))
+  .handler(async ({ data }): Promise<{ ok: true }> => {
+    const admin = await requireAdmin()
+    const cur = await readSmtpSettings()
+    const next: SmtpSettings = {
+      notificationsEnabled: data.notificationsEnabled,
+      host: data.host ?? cur.host,
+      port: data.port ?? cur.port,
+      secure: data.secure ?? cur.secure,
+      user: data.user ?? cur.user,
+      pass: applySecret(cur.pass, data.pass),
+      fromName: data.fromName ?? cur.fromName,
+      fromEmail: data.fromEmail ?? cur.fromEmail,
+    }
+    await writeSmtpSettings(next)
+    await audit({
+      userId: admin.id,
+      action: 'update',
+      entity: 'Setting',
+      entityId: 'smtp',
+      metadata: { notificationsEnabled: next.notificationsEnabled },
+    })
+    return { ok: true }
+  })
+
+export const testSmtp = createServerFn({ method: 'POST' })
+  .validator((d: unknown) =>
+    z.object({ to: z.string().email() }).parse(d),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; message: string }> => {
+    await requireAdmin()
+    try {
+      await sendTest({ to: data.to, ...testEmail() })
+      return { ok: true, message: `Test email sent to ${data.to}.` }
+    } catch (e) {
+      return { ok: false, message: (e as Error).message }
+    }
   })

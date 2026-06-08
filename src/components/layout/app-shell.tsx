@@ -6,6 +6,8 @@ import {
   Users,
   Activity,
   Settings,
+  Mail,
+  ScrollText,
   LogOut,
 } from 'lucide-react'
 import { authClient } from '#/lib/auth-client'
@@ -39,6 +41,8 @@ const NAV: Array<NavItem> = [
   { to: '/records/new', label: 'Add', icon: ListPlus },
   { to: '/admin/users', label: 'Users', icon: Users, admin: true },
   { to: '/admin/readings', label: 'Readings', icon: Activity, admin: true },
+  { to: '/admin/audit', label: 'Audit', icon: ScrollText, admin: true },
+  { to: '/admin/email', label: 'Email', icon: Mail, admin: true },
   { to: '/admin/settings', label: 'Settings', icon: Settings, admin: true },
 ]
 

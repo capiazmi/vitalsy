@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useRouter } from '@tanstack/react-router'
 import { HeartPulse, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { authClient } from '#/lib/auth-client'
@@ -84,6 +84,14 @@ function LoginPage() {
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign in
             </Button>
+            <p className="text-center text-sm">
+              <Link
+                to="/forgot-password"
+                className="text-muted-foreground hover:text-foreground hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </p>
           </form>
         </CardContent>
       </Card>

@@ -25,6 +25,7 @@ const config = defineConfig({
           'jimp',
           '@anthropic-ai/sdk',
           'ollama',
+          'nodemailer',
         ],
       },
     }),

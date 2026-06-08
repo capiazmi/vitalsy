@@ -5,8 +5,12 @@ import { prisma } from '#/db'
 import { auth } from '#/lib/auth'
 import { requireAdmin } from '#/server/guards'
 import { audit } from '#/lib/audit'
+import { notify } from '#/lib/mailer'
+import { accountCreated, passwordResetByAdmin } from '#/lib/email-templates'
 import { ROLES } from '#/lib/roles'
 import { idSchema, userCreateSchema, userUpdateSchema } from '#/lib/validation'
+
+const APP_URL = () => process.env.APP_URL ?? 'http://localhost:3000'
 
 export interface SerializedUser {
   id: string
@@ -16,6 +20,7 @@ export interface SerializedUser {
   isActive: boolean
   createdAt: string
   recordCount: number
+  lastLoginAt: string | null
 }
 
 const userSelect = {
@@ -28,15 +33,18 @@ const userSelect = {
   _count: { select: { bpRecords: true } },
 } as const
 
-function serialize(u: {
-  id: string
-  name: string
-  email: string
-  role: string | null
-  banned: boolean | null
-  createdAt: Date
-  _count: { bpRecords: number }
-}): SerializedUser {
+function serialize(
+  u: {
+    id: string
+    name: string
+    email: string
+    role: string | null
+    banned: boolean | null
+    createdAt: Date
+    _count: { bpRecords: number }
+  },
+  lastLoginAt: Date | null = null,
+): SerializedUser {
   return {
     id: u.id,
     name: u.name,
@@ -45,6 +53,7 @@ function serialize(u: {
     isActive: !u.banned,
     createdAt: u.createdAt.toISOString(),
     recordCount: u._count.bpRecords,
+    lastLoginAt: lastLoginAt ? lastLoginAt.toISOString() : null,
   }
 }
 
@@ -55,7 +64,16 @@ export const listUsers = createServerFn({ method: 'GET' }).handler(
       orderBy: { createdAt: 'desc' },
       select: userSelect,
     })
-    return users.map(serialize)
+    // Latest login (audit 'login') per user.
+    const logins = await prisma.auditLog.groupBy({
+      by: ['userId'],
+      where: { action: 'login', userId: { in: users.map((u) => u.id) } },
+      _max: { createdAt: true },
+    })
+    const lastLogin = new Map(
+      logins.map((l) => [l.userId, l._max.createdAt ?? null]),
+    )
+    return users.map((u) => serialize(u, lastLogin.get(u.id) ?? null))
   },
 )
 
@@ -68,7 +86,12 @@ export const getUser = createServerFn({ method: 'GET' })
       select: userSelect,
     })
     if (!user) throw new Error('User not found')
-    return serialize(user)
+    const last = await prisma.auditLog.findFirst({
+      where: { action: 'login', userId: data.id },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    })
+    return serialize(user, last?.createdAt ?? null)
   })
 
 export const createUser = createServerFn({ method: 'POST' })
@@ -91,6 +114,15 @@ export const createUser = createServerFn({ method: 'POST' })
       entity: 'User',
       entityId: res.user.id,
       metadata: { email: data.email, role: data.role },
+    })
+    await notify({
+      to: data.email,
+      ...accountCreated({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        appUrl: APP_URL(),
+      }),
     })
     return { id: res.user.id }
   })
@@ -129,6 +161,14 @@ export const updateUser = createServerFn({ method: 'POST' })
       await auth.api.setUserPassword({
         body: { userId: data.id, newPassword: data.password },
         headers,
+      })
+      await notify({
+        to: target.email,
+        ...passwordResetByAdmin({
+          name: target.name,
+          password: data.password,
+          appUrl: APP_URL(),
+        }),
       })
     }
 
