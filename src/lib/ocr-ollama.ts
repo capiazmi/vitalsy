@@ -1,4 +1,4 @@
-import { parseBpFromText, type OcrOutcome } from '#/lib/ocr'
+import { downscaleForVision, parseBpFromText, type OcrOutcome } from '#/lib/ocr'
 
 // OCR using an Ollama vision model — works with Ollama Cloud (ollama.com) or a
 // self-hosted/local Ollama server.
@@ -54,14 +54,20 @@ export async function runOllamaOcr(
   const client = new Ollama({ host, headers })
   const model = opts.model || process.env.OLLAMA_OCR_MODEL || 'qwen2.5vl'
 
+  // Shrink the photo before upload: smaller payload + fewer image tokens for
+  // the model to prefill, which is the bulk of the round-trip latency.
+  const { data: visionImage } = await downscaleForVision(image)
+
   const res = await client.chat({
     model,
     stream: false,
     messages: [
-      { role: 'user', content: PROMPT, images: [image.toString('base64')] },
+      { role: 'user', content: PROMPT, images: [visionImage.toString('base64')] },
     ],
     format: FORMAT,
-    options: { temperature: 0 },
+    // temperature 0 for determinism; num_predict caps the tiny JSON output so a
+    // stray long decode can't add latency.
+    options: { temperature: 0, num_predict: 64 },
   })
 
   const text = res.message?.content ?? ''

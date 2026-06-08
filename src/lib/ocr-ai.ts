@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
-import type { OcrOutcome } from '#/lib/ocr'
+import { downscaleForVision, type OcrOutcome } from '#/lib/ocr'
 
 // AI-powered OCR using Claude vision. Reads 7-segment LCD photos far more
 // reliably than classic OCR. Returns structured values directly.
@@ -56,9 +56,17 @@ export async function runAiOcr(
   const model =
     opts.model || process.env.ANTHROPIC_OCR_MODEL || 'claude-opus-4-8'
 
+  // Shrink before upload: fewer image tokens to prefill = faster + cheaper,
+  // with no loss that matters for reading large seven-segment digits. The
+  // helper re-encodes as JPEG; if it fails it returns the original bytes and
+  // we fall back to the caller's media type.
+  const { data: visionImage, mediaType: visionType } = await downscaleForVision(
+    image,
+    mediaType,
+  )
   const media = (
-    ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(mediaType)
-      ? mediaType
+    ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(visionType)
+      ? visionType
       : 'image/png'
   ) as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
 
@@ -74,7 +82,7 @@ export async function runAiOcr(
             source: {
               type: 'base64',
               media_type: media,
-              data: image.toString('base64'),
+              data: visionImage.toString('base64'),
             },
           },
           { type: 'text', text: PROMPT },

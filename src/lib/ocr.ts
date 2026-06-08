@@ -123,6 +123,34 @@ export async function preprocess(input: Buffer): Promise<Buffer> {
   return img.getBuffer('image/png')
 }
 
+/**
+ * Downscale a photo for vision-model OCR (Ollama / Claude). Shrinks the long
+ * edge to `maxEdge` and re-encodes as JPEG, which cuts both the upload size and
+ * the model's image-token prefill — the bulk of the latency for a cloud vision
+ * call — with no loss that matters for reading large seven-segment digits.
+ *
+ * Unlike `preprocess`, this does NOT binarise: vision models read the colour
+ * photo directly. Returns the original buffer untouched if anything fails.
+ */
+export async function downscaleForVision(
+  input: Buffer,
+  fallbackMediaType = 'image/jpeg',
+  maxEdge = 1024,
+): Promise<{ data: Buffer; mediaType: string }> {
+  try {
+    const { Jimp } = await import('jimp')
+    const img = await Jimp.read(input)
+    const longEdge = Math.max(img.bitmap.width, img.bitmap.height)
+    if (longEdge > maxEdge) {
+      img.scale(maxEdge / longEdge)
+    }
+    const data = await img.getBuffer('image/jpeg', { quality: 82 })
+    return { data, mediaType: 'image/jpeg' }
+  } catch {
+    return { data: input, mediaType: fallbackMediaType }
+  }
+}
+
 /** Lazily-loaded tesseract.js engine (kept out of the client bundle). */
 class TesseractEngine implements OcrEngine {
   async recognize(image: Buffer): Promise<OcrEngineResult> {
