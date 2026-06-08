@@ -52,6 +52,8 @@ export function AppShell({
   const router = useRouter()
   const admin = isAdmin(user.role)
   const items = NAV.filter((i) => !i.admin || admin)
+  const coreItems = NAV.filter((i) => !i.admin)
+  const adminItems = admin ? NAV.filter((i) => i.admin) : []
 
   async function signOut() {
     await authClient.signOut()
@@ -119,6 +121,21 @@ export function AppShell({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {adminItems.length > 0 && (
+                <>
+                  {adminItems.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <DropdownMenuItem key={item.to} asChild>
+                        <Link to={item.to}>
+                          <Icon className="mr-2 h-4 w-4" /> {item.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    )
+                  })}
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem onSelect={() => void signOut()}>
                 <LogOut className="mr-2 h-4 w-4" /> Sign out
               </DropdownMenuItem>
@@ -130,16 +147,16 @@ export function AppShell({
       {/* Main content */}
       <main className="mx-auto max-w-5xl px-4 pb-24 pt-6 md:pb-10">{children}</main>
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-5xl grid-cols-5">
-          {items.slice(0, 5).map((item) => {
+      {/* Mobile bottom nav — core actions; admin pages live in the avatar menu */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        <div className="mx-auto flex max-w-5xl">
+          {coreItems.map((item) => {
             const Icon = item.icon
             return (
               <Link
                 key={item.to}
                 to={item.to}
-                className="flex flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground"
+                className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground"
                 activeProps={{ className: 'text-teal-700' }}
                 activeOptions={{ exact: item.to === '/records' }}
               >

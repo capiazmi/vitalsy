@@ -17,17 +17,11 @@ import {
   type BpSubmitPayload,
 } from '#/components/bp/bp-form'
 import { Button } from '#/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '#/components/ui/card'
+import { Card, CardContent } from '#/components/ui/card'
+import { Separator } from '#/components/ui/separator'
 
 const searchSchema = z.object({
   scan: z.boolean().optional(),
-  // OCR/manual deep-link prefill
   systolic: z.coerce.number().optional(),
   diastolic: z.coerce.number().optional(),
   pulse: z.coerce.number().optional(),
@@ -44,7 +38,6 @@ function NewRecordPage() {
   const search = useSearch({ from: '/_authed/records/new' })
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // Scanner state
   const [showScanner, setShowScanner] = useState(Boolean(search.scan))
   const [imageSrc, setImageSrc] = useState<string | null>(null)
   const [crop, setCrop] = useState({ x: 0, y: 0 })
@@ -52,7 +45,6 @@ function NewRecordPage() {
   const [areaPixels, setAreaPixels] = useState<Area | null>(null)
   const [croppedDataUrl, setCroppedDataUrl] = useState<string | null>(null)
   const [ocrResult, setOcrResult] = useState<OcrResult | null>(null)
-  // Bumping this remounts the form with fresh values after a scan.
   const [formSeed, setFormSeed] = useState(0)
 
   const formInitial: BpFormValues = ocrResult
@@ -83,7 +75,6 @@ function NewRecordPage() {
       setCroppedDataUrl(croppedUrl)
       setOcrResult(res)
       setImageSrc(null)
-      // Clear any stale form draft so the scanned values aren't overwritten.
       try {
         window.localStorage.removeItem('draft:new-record')
       } catch {
@@ -133,47 +124,19 @@ function NewRecordPage() {
     setCroppedDataUrl(null)
     setOcrResult(null)
     setAreaPixels(null)
+    setShowScanner(false)
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="mx-auto max-w-xl space-y-4">
       <PageHeader
         title="Add reading"
-        description="Enter values manually, or scan a photo of your monitor."
+        description="Type the values, or scan a photo to autofill."
       />
 
-      {/* Optional scan */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ScanLine className="h-4 w-4" /> Scan from photo
-                <span className="text-xs font-normal text-muted-foreground">
-                  (optional)
-                </span>
-              </CardTitle>
-              <CardDescription>
-                We’ll read the numbers and fill the form for you.
-              </CardDescription>
-            </div>
-            {(showScanner || croppedDataUrl) && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                title="Close scanner"
-                onClick={() => {
-                  clearScan()
-                  setShowScanner(false)
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 pt-6">
+          {/* ── Scan section (optional, inline) ── */}
           <input
             ref={fileRef}
             type="file"
@@ -187,94 +150,115 @@ function NewRecordPage() {
           />
 
           {!showScanner && !croppedDataUrl ? (
-            <Button variant="outline" onClick={() => setShowScanner(true)}>
-              <ScanLine className="mr-2 h-4 w-4" /> Scan a photo
-            </Button>
-          ) : imageSrc ? (
-            <>
-              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <CropIcon className="h-4 w-4" /> Crop tightly to the SYS/DIA/PULSE
-                digits.
-              </p>
-              <div className="relative h-64 w-full overflow-hidden rounded-lg bg-black">
-                <Cropper
-                  image={imageSrc}
-                  crop={crop}
-                  zoom={zoom}
-                  minZoom={0.5}
-                  restrictPosition={false}
-                  onCropChange={setCrop}
-                  onZoomChange={setZoom}
-                  onCropComplete={(_, areaPx) => setAreaPixels(areaPx)}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1"
-                  onClick={() => scan.mutate()}
-                  disabled={scan.isPending}
-                >
-                  {scan.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <ScanLine className="mr-2 h-4 w-4" />
-                  )}
-                  {scan.isPending ? 'Reading…' : 'Read values'}
-                </Button>
-                <Button variant="outline" onClick={() => setImageSrc(null)}>
-                  Cancel
-                </Button>
-              </div>
-            </>
-          ) : croppedDataUrl ? (
-            <div className="flex items-center gap-3">
-              <img
-                src={croppedDataUrl}
-                alt="Scanned reading"
-                className="max-h-20 rounded border bg-white object-contain"
-              />
-              <div className="text-sm text-muted-foreground">
-                <p>Filled the form below — please verify.</p>
-                {ocrResult?.provider && (
-                  <p className="text-xs">Read with {ocrResult.provider}.</p>
-                )}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="ml-auto"
-                onClick={() => fileRef.current?.click()}
-              >
-                <ImageUp className="mr-1.5 h-4 w-4" /> Re-scan
-              </Button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-6 text-muted-foreground transition-colors hover:border-teal-500 hover:text-teal-600"
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowScanner(true)}
             >
-              <ImageUp className="h-7 w-7" />
-              <span className="text-sm font-medium">Choose or take a photo</span>
-            </button>
+              <ScanLine className="mr-2 h-4 w-4" /> Scan a photo to autofill
+            </Button>
+          ) : (
+            <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+              <div className="flex items-center justify-between">
+                <p className="flex items-center gap-1.5 text-sm font-medium">
+                  <ScanLine className="h-4 w-4" /> Scan from photo
+                </p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  title="Close scanner"
+                  onClick={clearScan}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {imageSrc ? (
+                <>
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CropIcon className="h-3.5 w-3.5" /> Crop tightly to the
+                    SYS/DIA/PULSE digits.
+                  </p>
+                  <div className="relative h-56 w-full overflow-hidden rounded-lg bg-black">
+                    <Cropper
+                      image={imageSrc}
+                      crop={crop}
+                      zoom={zoom}
+                      minZoom={0.5}
+                      restrictPosition={false}
+                      onCropChange={setCrop}
+                      onZoomChange={setZoom}
+                      onCropComplete={(_, areaPx) => setAreaPixels(areaPx)}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1"
+                      onClick={() => scan.mutate()}
+                      disabled={scan.isPending}
+                    >
+                      {scan.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ScanLine className="mr-2 h-4 w-4" />
+                      )}
+                      {scan.isPending ? 'Reading…' : 'Read values'}
+                    </Button>
+                    <Button variant="outline" onClick={() => setImageSrc(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              ) : croppedDataUrl ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={croppedDataUrl}
+                    alt="Scanned reading"
+                    className="max-h-16 rounded border bg-white object-contain"
+                  />
+                  <div className="min-w-0 text-xs text-muted-foreground">
+                    <p>Filled in below — verify the numbers.</p>
+                    {ocrResult?.provider && <p>Read with {ocrResult.provider}.</p>}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto shrink-0"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <ImageUp className="mr-1.5 h-4 w-4" /> Re-scan
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-6 text-muted-foreground transition-colors hover:border-teal-500 hover:text-teal-600"
+                >
+                  <ImageUp className="h-7 w-7" />
+                  <span className="text-sm font-medium">
+                    Choose or take a photo
+                  </span>
+                </button>
+              )}
+
+              {ocrResult?.rawText && (
+                <details className="text-xs text-muted-foreground">
+                  <summary className="cursor-pointer select-none">
+                    What the reader saw
+                  </summary>
+                  <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-muted p-2">
+                    {ocrResult.rawText}
+                  </pre>
+                </details>
+              )}
+            </div>
           )}
 
-          {ocrResult?.rawText && (
-            <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer select-none">
-                What the reader saw
-              </summary>
-              <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-muted p-2">
-                {ocrResult.rawText}
-              </pre>
-            </details>
-          )}
-        </CardContent>
-      </Card>
+          <Separator />
 
-      {/* The reading form (manual or prefilled by the scan) */}
-      <Card>
-        <CardContent className="pt-6">
+          {/* ── Reading form ── */}
           <BpForm
             key={formSeed}
             draftKey={ocrResult ? undefined : 'draft:new-record'}
