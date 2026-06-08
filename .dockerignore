@@ -1,0 +1,16 @@
+node_modules
+.output
+.nitro
+.vinxi
+.tanstack
+dist
+.git
+.gitignore
+*.log
+.env
+.env.*
+!.env.example
+.vscode
+.cursorrules
+README.md
+**/*.test.ts

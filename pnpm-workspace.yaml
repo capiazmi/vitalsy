@@ -1,0 +1,11 @@
+overrides:
+  # Pin kysely so better-auth's (unused) kysely sqlite dialects bundle cleanly.
+  kysely: 0.28.17
+
+allowBuilds:
+  '@prisma/engines': true
+  '@prisma/client': true
+  esbuild: true
+  lightningcss: true
+  prisma: true
+  tesseract.js: true

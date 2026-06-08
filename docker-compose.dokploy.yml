@@ -1,0 +1,64 @@
+# Production deployment for Dokploy — app only.
+#   - Uses your existing external PostgreSQL (set DATABASE_URL in .env).
+#   - Joins the external `dokploy-network` so Traefik can route to it.
+#   - NO published/exposed ports — Dokploy/Traefik handles ingress.
+#
+# Deploy:
+#   docker network create dokploy-network   # if it doesn't already exist
+#   docker compose -f docker-compose.dokploy.yml up -d --build
+#
+# Set the domain + TLS in the Dokploy UI, or uncomment the Traefik labels below.
+#
+# Note: on every boot the entrypoint runs `prisma migrate deploy` then the
+# idempotent admin seed against DATABASE_URL before starting the server.
+# If your Postgres runs as another service on dokploy-network, use its service
+# name as the host, e.g. postgresql://user:pass@my-postgres:5432/bpmonitor
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL to your external Postgres in .env}
+      APP_URL: ${APP_URL:?set APP_URL (your public https URL) in .env}
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL in .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrator}
+      # AI vision OCR (optional) — reads 7-segment LCDs far better than the fallback.
+      OCR_PROVIDER: ${OCR_PROVIDER:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_OCR_MODEL: ${ANTHROPIC_OCR_MODEL:-claude-opus-4-8}
+      # Ollama Cloud (or local) vision OCR (optional).
+      OLLAMA_HOST: ${OLLAMA_HOST:-https://ollama.com}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      OLLAMA_OCR_MODEL: ${OLLAMA_OCR_MODEL:-qwen2.5vl}
+      # External S3 (optional) — used to store OCR source images.
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+    networks:
+      - dokploy-network
+    # Dokploy usually configures routing in its UI. If you prefer labels,
+    # uncomment and set your domain (Traefik reads the container port from here):
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.docker.network=dokploy-network
+    #   - traefik.http.routers.bpmonitor.rule=Host(`bp.example.com`)
+    #   - traefik.http.routers.bpmonitor.entrypoints=websecure
+    #   - traefik.http.routers.bpmonitor.tls.certresolver=letsencrypt
+    #   - traefik.http.services.bpmonitor.loadbalancer.server.port=3000
+
+networks:
+  # Pre-existing Dokploy network (external). Create it if missing:
+  #   docker network create dokploy-network
+  dokploy-network:
+    external: true

@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Build and framework output
+dist/
+dist-ssr/
+.output/
+.nitro/
+.tanstack/
+.vinxi/
+.wrangler/
+__unconfig*
+
+# Generated source
+src/generated/
+src/routeTree.gen.ts
+
+# Tests and tooling
+coverage/
+*.tsbuildinfo
+*.log
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+todos.json
+
+# Local editor and OS files
+.idea/
+.vscode/
+.cursor/
+.cursorrules
+.cta.json
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.swp
+*.swo
+*~
