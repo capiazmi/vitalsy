@@ -2,7 +2,14 @@ import { useRef, useState } from 'react'
 import { createFileRoute, useRouter, useSearch } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Cropper, { type Area } from 'react-easy-crop'
-import { Crop as CropIcon, ImageUp, Loader2, ScanLine, X } from 'lucide-react'
+import {
+  Camera,
+  Crop as CropIcon,
+  ImageUp,
+  Loader2,
+  ScanLine,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { createRecordFromScan } from '#/server/records'
@@ -37,6 +44,7 @@ function NewRecordPage() {
   const queryClient = useQueryClient()
   const search = useSearch({ from: '/_authed/records/new' })
   const fileRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
 
   const [showScanner, setShowScanner] = useState(Boolean(search.scan))
   const [imageSrc, setImageSrc] = useState<string | null>(null)
@@ -67,7 +75,7 @@ function NewRecordPage() {
       const blob = await getCroppedBlob(imageSrc, areaPixels)
       const croppedUrl = await blobToDataUrl(blob)
       const fd = new FormData()
-      fd.append('image', blob, 'bp.png')
+      fd.append('image', blob, 'bp.jpg')
       const res = await processOcr({ data: fd })
       return { res, croppedUrl }
     },
@@ -98,7 +106,7 @@ function NewRecordPage() {
       if (payload.notes) fd.append('notes', payload.notes)
       fd.append('recordedAt', payload.recordedAt.toISOString())
       if (croppedDataUrl) {
-        fd.append('image', await dataUrlToBlob(croppedDataUrl), 'bp.png')
+        fd.append('image', await dataUrlToBlob(croppedDataUrl), 'bp.jpg')
       }
       return createRecordFromScan({ data: fd })
     },
@@ -127,6 +135,14 @@ function NewRecordPage() {
     setShowScanner(false)
   }
 
+  // Re-open the camera/upload chooser without discarding already-filled values.
+  function reopenChooser() {
+    setImageSrc(null)
+    setCroppedDataUrl(null)
+    setAreaPixels(null)
+    setShowScanner(true)
+  }
+
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <PageHeader
@@ -137,8 +153,9 @@ function NewRecordPage() {
       <Card>
         <CardContent className="space-y-5 pt-6">
           {/* ── Scan section (optional, inline) ── */}
+          {/* Camera capture: `capture` jumps straight to the rear camera. */}
           <input
-            ref={fileRef}
+            ref={cameraRef}
             type="file"
             accept="image/*"
             capture="environment"
@@ -146,6 +163,19 @@ function NewRecordPage() {
             onChange={(e) => {
               const f = e.target.files?.[0]
               if (f) onPick(f)
+              e.target.value = ''
+            }}
+          />
+          {/* File upload: no `capture`, so the OS shows gallery/files. */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) onPick(f)
+              e.target.value = ''
             }}
           />
 
@@ -225,22 +255,30 @@ function NewRecordPage() {
                     variant="outline"
                     size="sm"
                     className="ml-auto shrink-0"
-                    onClick={() => fileRef.current?.click()}
+                    onClick={reopenChooser}
                   >
                     <ImageUp className="mr-1.5 h-4 w-4" /> Re-scan
                   </Button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-6 text-muted-foreground transition-colors hover:border-teal-500 hover:text-teal-600"
-                >
-                  <ImageUp className="h-7 w-7" />
-                  <span className="text-sm font-medium">
-                    Choose or take a photo
-                  </span>
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => cameraRef.current?.click()}
+                    className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-6 text-muted-foreground transition-colors hover:border-teal-500 hover:text-teal-600"
+                  >
+                    <Camera className="h-7 w-7" />
+                    <span className="text-sm font-medium">Take photo</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-6 text-muted-foreground transition-colors hover:border-teal-500 hover:text-teal-600"
+                  >
+                    <ImageUp className="h-7 w-7" />
+                    <span className="text-sm font-medium">Upload file</span>
+                  </button>
+                </div>
               )}
 
               {ocrResult?.rawText && (

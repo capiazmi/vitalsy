@@ -179,8 +179,10 @@ export const createRecordFromScan = createServerFn({ method: 'POST' })
     if (file instanceof File && file.size > 0 && isS3Configured()) {
       try {
         const buffer = Buffer.from(await file.arrayBuffer())
-        const key = `bp/${user.id}/${Date.now()}-${crypto.randomUUID()}.png`
-        imagePath = (await uploadImage(key, buffer, file.type || 'image/png')) ?? null
+        const contentType = file.type || 'image/jpeg'
+        const ext = contentType === 'image/png' ? 'png' : 'jpg'
+        const key = `bp/${user.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`
+        imagePath = (await uploadImage(key, buffer, contentType)) ?? null
       } catch (err) {
         console.error('[records] image upload failed; saving without image', err)
       }
